@@ -1,5 +1,5 @@
 const axios = require('axios');
-const { signature } = require('./signature');
+const { signature } = require('../signature');
 
 const API_URL = 'https://api.binance.com/api/v3';
 const API_KEY = process.env.BINANCE_API_KEY;
