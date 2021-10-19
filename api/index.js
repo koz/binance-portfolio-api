@@ -54,7 +54,7 @@ const getCurrentFiatValue = async (symbol) => {
   const fiatValue = await unsignedGet('klines', {
     interval: '1m',
     startTime: time - 60000,
-    endTime: time,
+    endTime: time - 1,
     symbol: pair,
   }).then((data) => {
     return data[0][4];

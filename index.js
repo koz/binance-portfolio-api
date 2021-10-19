@@ -43,23 +43,34 @@ app.get('/wallet', async function (req, res) {
         const boughtCurrency = parsedPair[0];
         const transactionQty = t.qty * (t.isBuyer ? 1 : -1);
         const transactionFiatValue = t.fiatValue * (t.isBuyer ? 1 : -1);
+        const investimentValue = transactionFiatValue * transactionQty;
         if (!accum[boughtCurrency]) {
+          const currentFiatValue = await getCurrentFiatValue(boughtCurrency);
           accum[boughtCurrency] = {
             qty: transactionQty,
-            fiatValue: transactionFiatValue,
-            currentFiatValue: await getCurrentFiatValue(boughtCurrency),
+            investimentValue,
+            currentFiatValue,
+            currentTotalValue: currentFiatValue * transactionQty,
           };
           return;
         }
 
         accum[boughtCurrency].qty += transactionQty;
-        accum[boughtCurrency].fiatValue += transactionFiatValue;
+        accum[boughtCurrency].investimentValue += investimentValue;
         return;
       })
     );
 
     return accum;
   }, {});
+
+  await Promise.all(
+    Object.keys(wallet).map(async (symbol) => {
+      const currentFiatValue = await getCurrentFiatValue(symbol);
+      wallet[symbol].currentFiatValue = currentFiatValue;
+      wallet[symbol].currentTotalValue = currentFiatValue * wallet[symbol].qty;
+    })
+  );
 
   res.status(200).json(wallet);
   res.end();
