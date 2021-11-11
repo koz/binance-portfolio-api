@@ -6,6 +6,7 @@ import { AuthInput } from "../graphql-types/AuthInput";
 import { MyContext } from "../graphql-types/MyContext";
 import { UserResponse } from "../graphql-types/UserResponse";
 import { Wallet } from "../entity/Wallet";
+import { UpdatePairsInput } from "../graphql-types/UpdatePairsInput";
 
 const invalidLoginResponse = {
   errors: [
@@ -15,6 +16,24 @@ const invalidLoginResponse = {
     }
   ]
 };
+
+const userNotFoundResponse = {
+  errors: [
+    {
+      path: "user",
+      message: "user not found"
+    }
+  ]
+}
+
+const notAuthenticatedResponse = {
+  errors: [
+    {
+      path: "user",
+      message: "not authenticated"
+    }
+  ]
+}
 
 @Resolver()
 export class AuthResolver {
@@ -71,6 +90,30 @@ export class AuthResolver {
     ctx.req.session!.userId = user.id;
 
     return { user };
+  }
+
+  @Mutation(() => UserResponse)
+  async updatePairs(
+    @Arg("input") { pairs }: UpdatePairsInput,
+    @Ctx() ctx: MyContext
+  ): Promise<UserResponse> {
+    const userId = ctx.req.session.userId;
+
+    if (!userId) {
+      return userNotFoundResponse;
+    }
+
+    const user = await User.findOne(userId);
+
+    if (!user) {
+      return notAuthenticatedResponse;
+    }
+
+    user.pairs = pairs;
+
+    await user.save();
+
+    return { user }
   }
 
   @Query(() => User, { nullable: true })

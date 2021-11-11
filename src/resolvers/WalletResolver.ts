@@ -43,8 +43,11 @@ export class WalletResolver {
 
     const apiClient = new BinanceApiClient(user.binanceApiKey, user.binanceSecretKey);
 
-    // TODO: remove this default
-    const pairsList = user.pairs || ['DOT/BNB', 'ADA/BNB', 'ADA/EUR'];
+    const pairsList = user.pairs;
+
+    if (!pairsList) {
+      return { wallet }
+    }
 
     const assetTransactions = await apiClient.getPairsTransactions(pairsList);
 
