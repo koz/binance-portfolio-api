@@ -7,33 +7,7 @@ import { MyContext } from "../graphql-types/MyContext";
 import { UserResponse } from "../graphql-types/UserResponse";
 import { Wallet } from "../entity/Wallet";
 import { UpdatePairsInput } from "../graphql-types/UpdatePairsInput";
-
-const invalidLoginResponse = {
-  errors: [
-    {
-      path: "email",
-      message: "invalid login"
-    }
-  ]
-};
-
-const userNotFoundResponse = {
-  errors: [
-    {
-      path: "user",
-      message: "user not found"
-    }
-  ]
-}
-
-const notAuthenticatedResponse = {
-  errors: [
-    {
-      path: "user",
-      message: "not authenticated"
-    }
-  ]
-}
+import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from "../utils/ErrorsReponses";
 
 @Resolver()
 export class AuthResolver {
@@ -117,13 +91,19 @@ export class AuthResolver {
   }
 
   @Query(() => User, { nullable: true })
-  async me(@Ctx() ctx: MyContext): Promise<User | undefined> {
+  async me(@Ctx() ctx: MyContext): Promise<UserResponse> {
     const userId = ctx.req.session!.userId;
     if (!userId) {
-      return undefined;
+      return notAuthenticatedResponse;
     }
 
-    return User.findOne(userId, {relations: ["wallet"]});
+    const user = await User.findOne(userId, {relations: ["wallet"]});
+
+    if (!user) {
+      return userNotFoundResponse;
+    }
+
+    return { user };
   }
 
   @Mutation(() => Boolean)

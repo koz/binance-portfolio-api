@@ -5,6 +5,7 @@ import { WalletResponse } from "../graphql-types/WalletResponse";
 import { Ctx, Query, Resolver, UseMiddleware } from "type-graphql";
 import { isAuth } from "../middleware/isAuth";
 import BinanceApiClient from '../api/index'
+import { userNotFoundResponse, walletNotFound } from "../utils/ErrorsReponses";
 
 @Resolver()
 export class WalletResolver {
@@ -20,25 +21,11 @@ export class WalletResolver {
     }})
 
     if (!user) {
-      return {
-        errors: [
-          {
-            path: "user",
-            message: "user not found"
-          }
-        ]
-      };
+      return userNotFoundResponse
     }
 
     if (!wallet) {
-      return {
-        errors: [
-          {
-            path: "user",
-            message: "no wallet found for this user"
-          }
-        ]
-      };
+      return walletNotFound;
     }
 
     const apiClient = new BinanceApiClient(user.binanceApiKey, user.binanceSecretKey);
