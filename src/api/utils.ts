@@ -15,7 +15,7 @@ const errorHandler = ({ response }: AxiosError): void => {
 const getQueryString = (params: Record<string, string>) => new URLSearchParams(params).toString();
 
 // Used for private endpoints, such as user data
-const signedGet = (endpoint: string, params = {}, publicKey: string, secretKey: BinaryLike): Promise<any> => {
+export const signedGet = (endpoint: string, params = {}, publicKey: string, secretKey: BinaryLike): Promise<any> => {
   const timestamp = Date.now();
   const paramsWithTimestamp = {
     ...params,
@@ -36,10 +36,5 @@ const signedGet = (endpoint: string, params = {}, publicKey: string, secretKey: 
 };
 
 // Used for public endpoint, such as kline/candlestick data
-const unsignedGet = (endpoint: string, params = {}) =>
+export const unsignedGet = (endpoint: string, params = {}) =>
   axios.get(getURL(endpoint), { params }).then(responseHandler).catch(errorHandler);
-
-module.exports = {
-  signedGet,
-  unsignedGet,
-};

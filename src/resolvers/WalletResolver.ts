@@ -1,11 +1,51 @@
-import { User } from "../entity/User";
-import { Wallet } from "../entity/Wallet";
-import { MyContext } from "../graphql-types/MyContext";
-import { WalletResponse } from "../graphql-types/WalletResponse";
-import { Ctx, Query, Resolver, UseMiddleware } from "type-graphql";
-import { isAuth } from "../middleware/isAuth";
-import BinanceApiClient from '../api/index'
-import { userNotFoundResponse, walletNotFound } from "../utils/ErrorsReponses";
+import { User } from '../entity/User';
+import { Wallet } from '../entity/Wallet';
+import { MyContext } from '../graphql-types/MyContext';
+import { WalletResponse } from '../graphql-types/WalletResponse';
+import { Ctx, Query, Resolver, UseMiddleware } from 'type-graphql';
+import { isAuth } from '../middleware/isAuth';
+import BinanceApiClient from '../api/index';
+import { userNotFoundResponse, walletNotFound } from '../utils/ErrorsReponses';
+import { BinanceTransaction, Transaction, TransactionFiatValue } from '../utils/types';
+
+const formatTransactions = (transactions: (BinanceTransaction & TransactionFiatValue)[][]): Transaction[][] =>
+  transactions.map((pair) =>
+    pair.map(
+      ({
+        symbol,
+        id,
+        orderId,
+        orderListId,
+        price,
+        qty,
+        quoteQty,
+        commission,
+        commissionAsset,
+        time,
+        isBuyer,
+        isMaker,
+        isBestMatch,
+        pair,
+        fiatValue,
+      }) => ({
+        symbol,
+        id,
+        orderId,
+        orderListId,
+        price: Number(price),
+        qty: Number(qty),
+        quoteQty: Number(quoteQty),
+        commission: Number(commission),
+        commissionAsset: commissionAsset,
+        time: time,
+        isBuyer: isBuyer,
+        isMaker: isMaker,
+        isBestMatch: isBestMatch,
+        pair: pair,
+        fiatValue: Number(fiatValue),
+      })
+    )
+  );
 
 @Resolver()
 export class WalletResolver {
@@ -14,14 +54,16 @@ export class WalletResolver {
   async wallet(@Ctx() ctx: MyContext) {
     const userId = ctx.req.session!.userId;
     const user = await User.findOne(userId);
-    const wallet = await Wallet.findOne({where: {
-      user: {
-        id: userId
-      }
-    }})
+    const wallet = await Wallet.findOne({
+      where: {
+        user: {
+          id: userId,
+        },
+      },
+    });
 
     if (!user) {
-      return userNotFoundResponse
+      return userNotFoundResponse;
     }
 
     if (!wallet) {
@@ -33,27 +75,39 @@ export class WalletResolver {
     const pairsList = user.pairs;
 
     if (!pairsList) {
-      return { wallet }
+      return { wallet };
     }
 
-    const assetTransactions = await apiClient.getPairsTransactions(pairsList);
+    if (!user.transactionsLastUpdated || Date.now() > user.transactionsLastUpdated + 60000 * 5) {
+      console.log('updating transactions')
+      const assetTransactions = await apiClient.getPairsTransactions(pairsList, user.transactionsLastUpdated);
 
-    const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(assetTransactions);
+      const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(assetTransactions);
 
-    const walletFromApi: Record<string, {
-      qty: number,
-      investimentValue: number,
-      currentFiatValue: number,
-      currentTotalValue: number
-    }> = {}
+      const parsedTransactions = formatTransactions(transactionsWithFiatValue);
 
-    for (const transactions of transactionsWithFiatValue) {
+      user.transactions = user.transactions ? [...user.transactions, ...parsedTransactions] : parsedTransactions;
+      user.transactionsLastUpdated = Date.now();
+      await user.save();
+    }
+
+    const walletFromApi: Record<
+      string,
+      {
+        qty: number;
+        investimentValue: number;
+        currentFiatValue: number;
+        currentTotalValue: number;
+      }
+    > = {};
+
+    for (const transactions of user.transactions) {
       for (const t of transactions) {
         const parsedPair = t.pair.split('/');
         const boughtCurrency = parsedPair[0];
-        const qty = Number(t.qty);
+        const qty = t.qty;
         const transactionQty = qty * (t.isBuyer ? 1 : -1);
-        const transactionFiatValue = Number(t.fiatValue) * (t.isBuyer ? 1 : -1);
+        const transactionFiatValue = t.fiatValue * (t.isBuyer ? 1 : -1);
         const investimentValue = transactionFiatValue * transactionQty;
 
         if (!walletFromApi[boughtCurrency]) {
@@ -67,7 +121,8 @@ export class WalletResolver {
         } else {
           walletFromApi[boughtCurrency].qty += transactionQty;
           walletFromApi[boughtCurrency].investimentValue += investimentValue;
-          walletFromApi[boughtCurrency].currentTotalValue = walletFromApi[boughtCurrency].currentFiatValue * walletFromApi[boughtCurrency].qty;
+          walletFromApi[boughtCurrency].currentTotalValue =
+            walletFromApi[boughtCurrency].currentFiatValue * walletFromApi[boughtCurrency].qty;
         }
       }
     }
@@ -76,7 +131,7 @@ export class WalletResolver {
     await wallet.save();
 
     return {
-      wallet
-    }
+      wallet,
+    };
   }
 }

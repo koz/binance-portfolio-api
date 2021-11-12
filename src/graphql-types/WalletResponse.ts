@@ -1,6 +1,6 @@
-import { ObjectType, Field } from "type-graphql";
-import { FieldError } from "./FieldError";
-import { Wallet } from "../entity/Wallet";
+import { ObjectType, Field } from 'type-graphql';
+import { FieldError } from './FieldError';
+import { Wallet } from '../entity/Wallet';
 
 @ObjectType()
 export class WalletResponse {

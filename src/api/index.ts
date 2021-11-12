@@ -1,63 +1,75 @@
-import { BinaryLike } from "crypto";
+import { BinaryLike } from 'crypto';
+import { BinanceTransaction, TransactionFiatValue } from '../utils/types';
 
-const { unsignedGet, signedGet } = require('./utils');
+import { unsignedGet, signedGet } from './utils';
 
 export default class BinanceApiClient {
   constructor(publicKey: string, secretKey: BinaryLike) {
-    this.publicKey = publicKey
-    this.secretKey = secretKey
+    this.publicKey = publicKey;
+    this.secretKey = secretKey;
   }
 
   private publicKey: string;
   private secretKey: BinaryLike;
 
-  public getPairTransactions = (pair: string) => {
+  public getPairTransactions = (pair: string, startTime?: number) => {
     const parsedPair = pair.replace('/', '');
-    return signedGet('myTrades', {
-      symbol: parsedPair,
-    }, this.publicKey, this.secretKey);
+    const params: {
+      symbol: string,
+      startTime?: number
+    } = {
+      symbol: parsedPair
+    }
+
+    if (startTime) {
+      params.startTime = startTime
+    }
+
+    return signedGet(
+      'myTrades',
+      params,
+      this.publicKey,
+      this.secretKey
+    );
   };
 
-  public getPairsTransactions = (pairs: string[]) =>
-  Promise.all(pairs.map((pair) => this.getPairTransactions(pair))).then((transactions) =>
-    // Turn it into an object so we don't loose the pair -> transactions reference.
-    pairs.reduce((accum: Record<string, Record<string,any>>, pair: string, index: number): Record<string, Record<string, any>> => {
-      accum[pair] = transactions[index];
-      return accum;
-    }, {})
-  );
+  public getPairsTransactions = (pairs: string[], startTime?: number): Promise<BinanceTransaction[][]> =>
+    Promise.all(pairs.map((pair) => this.getPairTransactions(pair, startTime)))
 
-  public getTransactionsFiatValue = (transactionsList: Record<string, Record<string, any>>) =>
-  Promise.all(
-    Object.keys(transactionsList).map(async (c) => {
-      const parsedPair = c.split('/');
-      const buyCurrency = parsedPair[1];
-      const buyCurrencyWithFiat = `${buyCurrency}EUR`;
-      const transactions = transactionsList[c];
-      if (buyCurrency === 'EUR') {
-        return transactions.map((t: any) => ({
-          ...t,
-          pair: c,
-          fiatValue: t.price,
-        }));
-      }
-      return await Promise.all(
-        transactions.map(async (t: any) => {
-          const fiatValue = await unsignedGet('klines', {
-            interval: '1m',
-            startTime: t.time,
-            endTime: t.time + 60000,
-            symbol: buyCurrencyWithFiat,
-          }).then((data: (string | number)[][]) => data[0][4]);
-          return {
+  public getTransactionsFiatValue = (
+    transactionsList: BinanceTransaction[][]
+  ): Promise<(BinanceTransaction & TransactionFiatValue)[][]> =>
+    Promise.all(
+      transactionsList.map(async (transactions) => {
+        const {commissionAsset, symbol, isMaker} = transactions[0];
+        const buyCurrency = isMaker ? commissionAsset : symbol.replace(commissionAsset, '');
+        const regex = new RegExp(`(^\\w+)(${buyCurrency}$)`)
+        const pair = transactions[0].symbol.replace(regex, '$1/$2')
+        const buyCurrencyWithFiat = `${buyCurrency}EUR`;
+        if (buyCurrency === 'EUR') {
+          return transactions.map((t: BinanceTransaction): BinanceTransaction & TransactionFiatValue => ({
             ...t,
-            pair: c,
-            fiatValue: Number(t.price) * Number(fiatValue),
-          };
-        })
-      );
-    })
-  );
+            pair,
+            fiatValue: Number(t.price),
+          }));
+        }
+        return await Promise.all(
+          transactions.map(async (t: BinanceTransaction): Promise<BinanceTransaction & TransactionFiatValue> => {
+            const fiatValue = await unsignedGet('klines', {
+              interval: '1m',
+              startTime: t.time,
+              endTime: t.time + 60000,
+              symbol: buyCurrencyWithFiat,
+            }).then((data: (string | number)[][]) => data[0][4]);
+            return {
+              ...t,
+              pair,
+              fiatValue: Number(t.price) * Number(fiatValue),
+            };
+          })
+        );
+      })
+    );
 
   public getCurrentFiatValue = async (symbol: string): Promise<number> => {
     const pair = `${symbol}EUR`;
@@ -69,9 +81,9 @@ export default class BinanceApiClient {
       symbol: pair,
     }).then((data: (string | number)[][]) => {
       if (data[0] && data[0][4]) {
-        return data[0][4];
+        return Number(data[0][4]);
       }
-      return 0
+      return 0;
     });
     return fiatValue;
   };

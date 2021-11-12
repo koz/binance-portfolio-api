@@ -1,19 +1,19 @@
-import bcrypt from "bcryptjs";
-import { Arg, Ctx, Mutation, Resolver, Query } from "type-graphql";
-import { User } from "../entity/User";
-import { UserInput } from "../graphql-types/UserInput";
-import { AuthInput } from "../graphql-types/AuthInput";
-import { MyContext } from "../graphql-types/MyContext";
-import { UserResponse } from "../graphql-types/UserResponse";
-import { Wallet } from "../entity/Wallet";
-import { UpdatePairsInput } from "../graphql-types/UpdatePairsInput";
-import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from "../utils/ErrorsReponses";
+import bcrypt from 'bcryptjs';
+import { Arg, Ctx, Mutation, Resolver, Query } from 'type-graphql';
+import { User } from '../entity/User';
+import { UserInput } from '../graphql-types/UserInput';
+import { AuthInput } from '../graphql-types/AuthInput';
+import { MyContext } from '../graphql-types/MyContext';
+import { UserResponse } from '../graphql-types/UserResponse';
+import { Wallet } from '../entity/Wallet';
+import { UpdatePairsInput } from '../graphql-types/UpdatePairsInput';
+import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from '../utils/ErrorsReponses';
 
 @Resolver()
 export class AuthResolver {
   @Mutation(() => UserResponse)
   async register(
-    @Arg("input")
+    @Arg('input')
     { email, password, binanceKey, binanceSecretKey }: UserInput
   ): Promise<UserResponse> {
     const hashedPassword = await bcrypt.hash(password, 12);
@@ -24,14 +24,14 @@ export class AuthResolver {
       return {
         errors: [
           {
-            path: "email",
-            message: "already in use"
-          }
-        ]
+            path: 'email',
+            message: 'already in use',
+          },
+        ],
       };
     }
 
-    const wallet = await Wallet.create().save()
+    const wallet = await Wallet.create().save();
 
     const user = await User.create({
       email,
@@ -45,10 +45,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => UserResponse)
-  async login(
-    @Arg("input") { email, password }: AuthInput,
-    @Ctx() ctx: MyContext
-  ): Promise<UserResponse> {
+  async login(@Arg('input') { email, password }: AuthInput, @Ctx() ctx: MyContext): Promise<UserResponse> {
     const user = await User.findOne({ where: { email } });
 
     if (!user) {
@@ -67,10 +64,7 @@ export class AuthResolver {
   }
 
   @Mutation(() => UserResponse)
-  async updatePairs(
-    @Arg("input") { pairs }: UpdatePairsInput,
-    @Ctx() ctx: MyContext
-  ): Promise<UserResponse> {
+  async updatePairs(@Arg('input') { pairs }: UpdatePairsInput, @Ctx() ctx: MyContext): Promise<UserResponse> {
     const userId = ctx.req.session.userId;
 
     if (!userId) {
@@ -87,7 +81,7 @@ export class AuthResolver {
 
     await user.save();
 
-    return { user }
+    return { user };
   }
 
   @Query(() => User, { nullable: true })
@@ -97,7 +91,7 @@ export class AuthResolver {
       return notAuthenticatedResponse;
     }
 
-    const user = await User.findOne(userId, {relations: ["wallet"]});
+    const user = await User.findOne(userId, { relations: ['wallet'] });
 
     if (!user) {
       return userNotFoundResponse;
@@ -109,13 +103,13 @@ export class AuthResolver {
   @Mutation(() => Boolean)
   async logout(@Ctx() ctx: MyContext): Promise<Boolean> {
     return new Promise((res, rej) =>
-      ctx.req.session!.destroy(err => {
+      ctx.req.session!.destroy((err) => {
         if (err) {
           console.log(err);
           return rej(false);
         }
 
-        ctx.res.clearCookie("qid");
+        ctx.res.clearCookie('qid');
         return res(true);
       })
     );
