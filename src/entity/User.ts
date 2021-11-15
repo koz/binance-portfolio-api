@@ -1,39 +1,60 @@
-import { Entity, PrimaryGeneratedColumn, Column, BaseEntity, OneToOne, JoinColumn } from 'typeorm';
 import { Field, ObjectType } from 'type-graphql';
-import { Wallet } from './Wallet';
-import { Transaction } from '../utils/types';
+import { Transaction } from './Transaction';
+import { prop } from '@typegoose/typegoose';
+import GraphQLJSON from 'graphql-type-json';
 
 @ObjectType()
-@Entity()
-export class User extends BaseEntity {
+export class Token {
   @Field()
-  @PrimaryGeneratedColumn()
-  id: number;
+  @prop({ required: true })
+  token!: string;
 
   @Field()
-  @Column('text', { unique: true })
-  email: string;
+  @prop({ required: true })
+  qty!: number;
 
-  @Column()
-  password: string;
+  @Field()
+  @prop({ required: true })
+  investimentValue!: number;
 
-  @Column()
-  binanceApiKey: string;
+  @Field()
+  @prop({ required: true })
+  currentFiatValue!: number;
 
-  @Column()
-  binanceSecretKey: string;
+  @Field()
+  @prop({ required: true })
+  currentTotalValue!: number;
+}
 
-  @Column('simple-array', { nullable: true })
+@ObjectType()
+export class User {
+  @Field()
+  _id!: string;
+
+  @Field()
+  @prop({ unique: true, required: true })
+  email!: string;
+
+  @prop({ required: true })
+  password!: string;
+
+  @prop({ required: true })
+  binanceApiKey!: string;
+
+  @prop({ required: true })
+  binanceSecretKey!: string;
+
+  @Field(() => [String])
+  @prop({ type: () => [String] })
   pairs: string[];
 
-  @Field()
-  @OneToOne(() => Wallet, (wallet) => wallet.user)
-  @JoinColumn()
-  wallet: Wallet;
+  @Field(() => GraphQLJSON, { nullable: true })
+  @prop({ _id: false, type: () => Token })
+  tokens!: Token[];
 
-  @Column('simple-array', { nullable: true })
+  @prop({ _id: false, type: () => [[Transaction]] })
   transactions: Transaction[][];
 
-  @Column({ nullable: true })
+  @prop()
   transactionsLastUpdated: number;
 }

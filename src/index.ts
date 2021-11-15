@@ -1,25 +1,22 @@
 import 'reflect-metadata';
-import { createConnection, getConnectionOptions } from 'typeorm';
 import express from 'express';
 import session from 'express-session';
-import connectSqlite3 from 'connect-sqlite3';
 import { ApolloServer } from 'apollo-server-express';
 import { buildSchema } from 'type-graphql';
 import { AuthResolver } from './resolvers/AuthResolver';
-import { WalletResolver } from './resolvers/WalletResolver';
+import { TokensResolver } from './resolvers/TokensResolver';
 
-// I like to use redis for this: https://github.com/tj/connect-redis
-const SQLiteStore = connectSqlite3(session);
+import MongoStore from 'connect-mongo';
+import mongo from 'mongoose';
+
+const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.op1pd.mongodb.net/test?retryWrites=true&w=majority`;
 
 (async () => {
   const app = express();
 
   app.use(
     session({
-      store: new SQLiteStore({
-        db: 'database.sqlite',
-        concurrentDB: true,
-      }),
+      store: MongoStore.create({ mongoUrl: mongoUri }),
       name: 'qid',
       secret: process.env.SESSION_SECRET || 'aslkdfjoiq12312',
       resave: false,
@@ -32,14 +29,18 @@ const SQLiteStore = connectSqlite3(session);
     })
   );
 
-  // get options from ormconfig.js
-  const dbOptions = await getConnectionOptions(process.env.NODE_ENV || 'development');
-  await createConnection({ ...dbOptions, name: 'default' });
+  mongo.connect(mongoUri);
+  mongo.connection.on('open', function () {
+    const port = process.env.PORT || 4000;
+    app.listen(port, () => {
+      console.log(`server started at http://localhost:${port}/graphql`);
+    });
+  });
 
   let schema;
   try {
     schema = await buildSchema({
-      resolvers: [AuthResolver, WalletResolver],
+      resolvers: [AuthResolver, TokensResolver],
       validate: false,
     });
   } catch (e) {
@@ -53,8 +54,4 @@ const SQLiteStore = connectSqlite3(session);
   });
 
   apolloServer.applyMiddleware({ app, cors: false });
-  const port = process.env.PORT || 4000;
-  app.listen(port, () => {
-    console.log(`server started at http://localhost:${port}/graphql`);
-  });
 })();

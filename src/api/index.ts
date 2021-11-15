@@ -15,36 +15,31 @@ export default class BinanceApiClient {
   public getPairTransactions = (pair: string, startTime?: number) => {
     const parsedPair = pair.replace('/', '');
     const params: {
-      symbol: string,
-      startTime?: number
+      symbol: string;
+      startTime?: number;
     } = {
-      symbol: parsedPair
-    }
+      symbol: parsedPair,
+    };
 
     if (startTime) {
-      params.startTime = startTime
+      params.startTime = startTime;
     }
 
-    return signedGet(
-      'myTrades',
-      params,
-      this.publicKey,
-      this.secretKey
-    );
+    return signedGet('myTrades', params, this.publicKey, this.secretKey);
   };
 
   public getPairsTransactions = (pairs: string[], startTime?: number): Promise<BinanceTransaction[][]> =>
-    Promise.all(pairs.map((pair) => this.getPairTransactions(pair, startTime)))
+    Promise.all(pairs.map((pair) => this.getPairTransactions(pair, startTime)));
 
   public getTransactionsFiatValue = (
     transactionsList: BinanceTransaction[][]
   ): Promise<(BinanceTransaction & TransactionFiatValue)[][]> =>
     Promise.all(
       transactionsList.map(async (transactions) => {
-        const {commissionAsset, symbol, isMaker} = transactions[0];
+        const { commissionAsset, symbol, isMaker } = transactions[0];
         const buyCurrency = isMaker ? commissionAsset : symbol.replace(commissionAsset, '');
-        const regex = new RegExp(`(^\\w+)(${buyCurrency}$)`)
-        const pair = transactions[0].symbol.replace(regex, '$1/$2')
+        const regex = new RegExp(`(^\\w+)(${buyCurrency}$)`);
+        const pair = transactions[0].symbol.replace(regex, '$1/$2');
         const buyCurrencyWithFiat = `${buyCurrency}EUR`;
         if (buyCurrency === 'EUR') {
           return transactions.map((t: BinanceTransaction): BinanceTransaction & TransactionFiatValue => ({

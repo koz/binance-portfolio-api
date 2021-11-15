@@ -25,11 +25,11 @@ export const notAuthenticatedResponse = {
   ],
 };
 
-export const walletNotFound = {
+export const tokensNotFound = {
   errors: [
     {
       path: 'user',
-      message: 'no wallet found for this user',
+      message: 'no tokens found for this user',
     },
   ],
 };

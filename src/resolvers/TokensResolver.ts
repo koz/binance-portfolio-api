@@ -1,12 +1,15 @@
-import { User } from '../entity/User';
-import { Wallet } from '../entity/Wallet';
+import { Token, User } from '../entity/User';
 import { MyContext } from '../graphql-types/MyContext';
-import { WalletResponse } from '../graphql-types/WalletResponse';
+import { TokensResponse } from '../graphql-types/TokensResponse';
 import { Ctx, Query, Resolver, UseMiddleware } from 'type-graphql';
 import { isAuth } from '../middleware/isAuth';
 import BinanceApiClient from '../api/index';
-import { userNotFoundResponse, walletNotFound } from '../utils/ErrorsReponses';
-import { BinanceTransaction, Transaction, TransactionFiatValue } from '../utils/types';
+import { userNotFoundResponse, tokensNotFound } from '../utils/ErrorsReponses';
+import { BinanceTransaction, TransactionFiatValue } from '../utils/types';
+import { Transaction } from '../entity/Transaction';
+import { getModelForClass } from '@typegoose/typegoose';
+
+const UserModel = getModelForClass(User);
 
 const formatTransactions = (transactions: (BinanceTransaction & TransactionFiatValue)[][]): Transaction[][] =>
   transactions.map((pair) =>
@@ -48,58 +51,38 @@ const formatTransactions = (transactions: (BinanceTransaction & TransactionFiatV
   );
 
 @Resolver()
-export class WalletResolver {
-  @Query(() => WalletResponse)
+export class TokensResolver {
+  @Query(() => TokensResponse)
   @UseMiddleware(isAuth)
-  async wallet(@Ctx() ctx: MyContext) {
+  async updatedTokens(@Ctx() ctx: MyContext) {
     const userId = ctx.req.session!.userId;
-    const user = await User.findOne(userId);
-    const wallet = await Wallet.findOne({
-      where: {
-        user: {
-          id: userId,
-        },
-      },
-    });
+    const user = await UserModel.findById(userId);
+    const pairs = user?.pairs;
 
     if (!user) {
       return userNotFoundResponse;
     }
 
-    if (!wallet) {
-      return walletNotFound;
+    if (!pairs) {
+      return tokensNotFound;
     }
 
     const apiClient = new BinanceApiClient(user.binanceApiKey, user.binanceSecretKey);
 
-    const pairsList = user.pairs;
-
-    if (!pairsList) {
-      return { wallet };
-    }
-
     if (!user.transactionsLastUpdated || Date.now() > user.transactionsLastUpdated + 60000 * 5) {
-      console.log('updating transactions')
-      const assetTransactions = await apiClient.getPairsTransactions(pairsList, user.transactionsLastUpdated);
+      const assetTransactions = await apiClient.getPairsTransactions(pairs, user.transactionsLastUpdated);
 
-      const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(assetTransactions);
+      const nonEmptyTransactions = assetTransactions.filter((s) => s.filter((x) => x).length);
+
+      const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(nonEmptyTransactions);
 
       const parsedTransactions = formatTransactions(transactionsWithFiatValue);
 
       user.transactions = user.transactions ? [...user.transactions, ...parsedTransactions] : parsedTransactions;
       user.transactionsLastUpdated = Date.now();
-      await user.save();
     }
 
-    const walletFromApi: Record<
-      string,
-      {
-        qty: number;
-        investimentValue: number;
-        currentFiatValue: number;
-        currentTotalValue: number;
-      }
-    > = {};
+    const tokensFromApi: Record<string, Token> = {};
 
     for (const transactions of user.transactions) {
       for (const t of transactions) {
@@ -110,28 +93,30 @@ export class WalletResolver {
         const transactionFiatValue = t.fiatValue * (t.isBuyer ? 1 : -1);
         const investimentValue = transactionFiatValue * transactionQty;
 
-        if (!walletFromApi[boughtCurrency]) {
+        if (!tokensFromApi[boughtCurrency]) {
           const currentFiatValue = Number(await apiClient.getCurrentFiatValue(boughtCurrency));
-          walletFromApi[boughtCurrency] = {
+          tokensFromApi[boughtCurrency] = {
+            token: boughtCurrency,
             qty,
             investimentValue,
             currentFiatValue,
             currentTotalValue: currentFiatValue * qty,
           };
         } else {
-          walletFromApi[boughtCurrency].qty += transactionQty;
-          walletFromApi[boughtCurrency].investimentValue += investimentValue;
-          walletFromApi[boughtCurrency].currentTotalValue =
-            walletFromApi[boughtCurrency].currentFiatValue * walletFromApi[boughtCurrency].qty;
+          tokensFromApi[boughtCurrency].qty += transactionQty;
+          tokensFromApi[boughtCurrency].investimentValue += investimentValue;
+          tokensFromApi[boughtCurrency].currentTotalValue =
+            tokensFromApi[boughtCurrency].currentFiatValue * tokensFromApi[boughtCurrency].qty;
         }
       }
     }
 
-    wallet.tokens = walletFromApi;
-    await wallet.save();
+    user.tokens = Object.keys(tokensFromApi).map((key) => tokensFromApi[key]);
+
+    await user.save();
 
     return {
-      wallet,
+      tokens: user.tokens,
     };
   }
 }

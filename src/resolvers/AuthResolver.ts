@@ -5,9 +5,11 @@ import { UserInput } from '../graphql-types/UserInput';
 import { AuthInput } from '../graphql-types/AuthInput';
 import { MyContext } from '../graphql-types/MyContext';
 import { UserResponse } from '../graphql-types/UserResponse';
-import { Wallet } from '../entity/Wallet';
 import { UpdatePairsInput } from '../graphql-types/UpdatePairsInput';
 import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from '../utils/ErrorsReponses';
+import { getModelForClass } from '@typegoose/typegoose';
+
+const UserModel = getModelForClass(User);
 
 @Resolver()
 export class AuthResolver {
@@ -18,7 +20,7 @@ export class AuthResolver {
   ): Promise<UserResponse> {
     const hashedPassword = await bcrypt.hash(password, 12);
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await UserModel.findOne({ email }).exec();
 
     if (existingUser) {
       return {
@@ -31,22 +33,21 @@ export class AuthResolver {
       };
     }
 
-    const wallet = await Wallet.create().save();
-
-    const user = await User.create({
+    const user = await UserModel.create({
       email,
       password: hashedPassword,
       binanceApiKey: binanceKey,
       binanceSecretKey,
-      wallet,
-    }).save();
+    });
+
+    await user.save();
 
     return { user };
   }
 
   @Mutation(() => UserResponse)
   async login(@Arg('input') { email, password }: AuthInput, @Ctx() ctx: MyContext): Promise<UserResponse> {
-    const user = await User.findOne({ where: { email } });
+    const user = await UserModel.findOne({ email }).exec();
 
     if (!user) {
       return invalidLoginResponse;
@@ -58,7 +59,7 @@ export class AuthResolver {
       return invalidLoginResponse;
     }
 
-    ctx.req.session!.userId = user.id;
+    ctx.req.session!.userId = user._id;
 
     return { user };
   }
@@ -71,7 +72,7 @@ export class AuthResolver {
       return userNotFoundResponse;
     }
 
-    const user = await User.findOne(userId);
+    const user = await UserModel.findById(userId);
 
     if (!user) {
       return notAuthenticatedResponse;
@@ -84,14 +85,14 @@ export class AuthResolver {
     return { user };
   }
 
-  @Query(() => User, { nullable: true })
+  @Query(() => UserResponse, { nullable: true })
   async me(@Ctx() ctx: MyContext): Promise<UserResponse> {
     const userId = ctx.req.session!.userId;
     if (!userId) {
       return notAuthenticatedResponse;
     }
 
-    const user = await User.findOne(userId, { relations: ['wallet'] });
+    const user = await UserModel.findById(userId);
 
     if (!user) {
       return userNotFoundResponse;

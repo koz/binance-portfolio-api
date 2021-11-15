@@ -1,11 +1,12 @@
+import { Token } from '../entity/User';
 import { ObjectType, Field } from 'type-graphql';
 import { FieldError } from './FieldError';
-import { Wallet } from '../entity/Wallet';
+import GraphQLJSON from 'graphql-type-json';
 
 @ObjectType()
-export class WalletResponse {
-  @Field(() => Wallet, { nullable: true })
-  wallet?: Wallet;
+export class TokensResponse {
+  @Field(() => GraphQLJSON, { nullable: true })
+  tokens?: [Token];
 
   @Field(() => [FieldError], { nullable: true })
   errors?: FieldError[];
