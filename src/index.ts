@@ -57,5 +57,7 @@ const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cl
 
   apolloServer.applyMiddleware({ app, cors: false });
 
-  app.use(updateExchangeInfo);
+  if (process.env.NODE_ENV === 'production') {
+    app.use(updateExchangeInfo);
+  }
 })();
