@@ -3,9 +3,9 @@ import { AuthInput } from './AuthInput';
 
 @InputType()
 export class UserInput extends AuthInput {
-  @Field()
+  @Field(() => String)
   binanceKey: string;
 
-  @Field()
+  @Field(() => String)
   binanceSecretKey: string;
 }

@@ -8,6 +8,7 @@ import { UserResponse } from '../graphql-types/UserResponse';
 import { UpdatePairsInput } from '../graphql-types/UpdatePairsInput';
 import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from '../utils/ErrorsReponses';
 import { getModelForClass } from '@typegoose/typegoose';
+import { decryptMessage } from '../utils/decrypt';
 
 const UserModel = getModelForClass(User);
 
@@ -36,8 +37,8 @@ export class AuthResolver {
     const user = await UserModel.create({
       email,
       password: hashedPassword,
-      binanceApiKey: binanceKey,
-      binanceSecretKey,
+      binanceApiKey: decryptMessage(binanceKey),
+      binanceSecretKey: decryptMessage(binanceSecretKey),
     });
 
     await user.save();
