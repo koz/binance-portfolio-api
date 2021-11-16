@@ -8,6 +8,8 @@ import { TokensResolver } from './resolvers/TokensResolver';
 
 import MongoStore from 'connect-mongo';
 import mongo from 'mongoose';
+import { ExchangeResolver } from './resolvers/ExchangeResolver';
+import { updateExchangeInfo } from './middleware/updateExchangeInfo';
 
 const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.op1pd.mongodb.net/test?retryWrites=true&w=majority`;
 
@@ -40,7 +42,7 @@ const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cl
   let schema;
   try {
     schema = await buildSchema({
-      resolvers: [AuthResolver, TokensResolver],
+      resolvers: [AuthResolver, TokensResolver, ExchangeResolver],
       validate: false,
     });
   } catch (e) {
@@ -54,4 +56,6 @@ const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cl
   });
 
   apolloServer.applyMiddleware({ app, cors: false });
+
+  app.use(updateExchangeInfo);
 })();

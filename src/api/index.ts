@@ -4,15 +4,19 @@ import { BinanceTransaction, TransactionFiatValue } from '../utils/types';
 import { unsignedGet, signedGet } from './utils';
 
 export default class BinanceApiClient {
-  constructor(publicKey: string, secretKey: BinaryLike) {
+  constructor(publicKey?: string, secretKey?: BinaryLike) {
     this.publicKey = publicKey;
     this.secretKey = secretKey;
   }
 
-  private publicKey: string;
-  private secretKey: BinaryLike;
+  private publicKey?: string;
+  private secretKey?: BinaryLike;
 
   public getPairTransactions = (pair: string, startTime?: number) => {
+    if (!this.publicKey || !this.secretKey) {
+      throw Error('Missing api key');
+    }
+
     const parsedPair = pair.replace('/', '');
     const params: {
       symbol: string;
@@ -82,4 +86,6 @@ export default class BinanceApiClient {
     });
     return fiatValue;
   };
+
+  public getExchangeInfo = async (): Promise<any> => await unsignedGet('exchangeInfo');
 }
