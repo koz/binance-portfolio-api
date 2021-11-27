@@ -6,7 +6,7 @@ import { AuthInput } from '../graphql-types/AuthInput';
 import { MyContext } from '../graphql-types/MyContext';
 import { UserResponse } from '../graphql-types/UserResponse';
 import { UpdatePairsInput } from '../graphql-types/UpdatePairsInput';
-import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from '../utils/ErrorsReponses';
+import { invalidLoginResponse, notAuthenticatedResponse, userNotFoundResponse } from '../utils/errorsReponses';
 import { getModelForClass } from '@typegoose/typegoose';
 import { decryptMessage } from '../utils/decrypt';
 

@@ -4,7 +4,7 @@ import { TokensResponse } from '../graphql-types/TokensResponse';
 import { Ctx, Query, Resolver, UseMiddleware } from 'type-graphql';
 import { isAuth } from '../middleware/isAuth';
 import BinanceApiClient from '../api/index';
-import { userNotFoundResponse, tokensNotFound } from '../utils/ErrorsReponses';
+import { userNotFoundResponse, tokensNotFound } from '../utils/errorsReponses';
 import { BinanceTransaction, TransactionFiatValue } from '../utils/types';
 import { Transaction } from '../entity/Transaction';
 import { getModelForClass } from '@typegoose/typegoose';
