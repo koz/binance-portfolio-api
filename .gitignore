@@ -1,3 +1,5 @@
 node_modules
 dist
 database.sqlite
+auth_rsa
+auth_rsa.pub
