@@ -13,41 +13,14 @@ const UserModel = getModelForClass(User);
 
 const formatTransactions = (transactions: (BinanceTransactionWPair & TransactionFiatValue)[][]): Transaction[][] =>
   transactions.map((pair) =>
-    pair.map(
-      ({
-        symbol,
-        id,
-        orderId,
-        orderListId,
-        price,
-        qty,
-        quoteQty,
-        commission,
-        commissionAsset,
-        time,
-        isBuyer,
-        isMaker,
-        isBestMatch,
-        pair,
-        fiatValue,
-      }) => ({
-        symbol,
-        id,
-        orderId,
-        orderListId,
-        price: Number(price),
-        qty: Number(qty),
-        quoteQty: Number(quoteQty),
-        commission: Number(commission),
-        commissionAsset: commissionAsset,
-        time: time,
-        isBuyer: isBuyer,
-        isMaker: isMaker,
-        isBestMatch: isBestMatch,
-        pair: pair,
-        fiatValue: Number(fiatValue),
-      })
-    )
+    pair.map((p) => ({
+      ...p,
+      price: Number(p.price),
+      qty: Number(p.qty),
+      quoteQty: Number(p.quoteQty),
+      commission: Number(p.commission),
+      fiatValue: Number(p.fiatValue),
+    }))
   );
 
 @Resolver()
@@ -85,31 +58,46 @@ export class TokensResolver {
     for (const transactions of user.transactions) {
       for (const t of transactions) {
         const parsedPair = t.pair.split('/');
-        const boughtCurrency = parsedPair[0];
+        const boughtAsset = parsedPair[0];
+        const baseAsset = parsedPair[1];
         const qty = t.qty;
         const transactionQty = qty * (t.isBuyer ? 1 : -1);
         const transactionFiatValue = t.fiatValue * (t.isBuyer ? 1 : -1);
         const investimentValue = transactionFiatValue * transactionQty;
 
-        if (!tokensFromApi[boughtCurrency]) {
-          const currentFiatValue = Number(await apiClient.getCurrentFiatValue(t.pair));
-          tokensFromApi[boughtCurrency] = {
-            token: boughtCurrency,
+        if (!tokensFromApi[boughtAsset]) {
+          tokensFromApi[boughtAsset] = {
+            token: boughtAsset,
             qty,
             investimentValue,
-            currentFiatValue,
-            currentTotalValue: currentFiatValue * qty,
+            currentTotalValue: 0,
           };
         } else {
-          tokensFromApi[boughtCurrency].qty += transactionQty;
-          tokensFromApi[boughtCurrency].investimentValue += investimentValue;
-          tokensFromApi[boughtCurrency].currentTotalValue =
-            tokensFromApi[boughtCurrency].currentFiatValue * tokensFromApi[boughtCurrency].qty;
+          tokensFromApi[boughtAsset].qty += transactionQty;
+          tokensFromApi[boughtAsset].investimentValue += investimentValue;
+        }
+
+        if (!tokensFromApi[baseAsset]) {
+          tokensFromApi[baseAsset] = {
+            token: baseAsset,
+            qty: t.quoteQty * -1,
+            investimentValue: 0,
+            currentTotalValue: 0,
+          };
+        } else {
+          tokensFromApi[baseAsset].qty -= t.quoteQty;
         }
       }
     }
 
-    user.tokens = Object.keys(tokensFromApi).map((key) => tokensFromApi[key]);
+    user.tokens = await Promise.all(
+      Object.keys(tokensFromApi).map(async (key) => {
+        const currentFiatValue = Number(await apiClient.getCurrentFiatValue(key));
+        tokensFromApi[key].currentFiatValue = currentFiatValue;
+        tokensFromApi[key].currentTotalValue = tokensFromApi[key].qty * currentFiatValue;
+        return tokensFromApi[key];
+      })
+    );
 
     await user.save();
 

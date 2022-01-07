@@ -18,8 +18,8 @@ export class Token {
   investimentValue!: number;
 
   @Field()
-  @prop({ required: true })
-  currentFiatValue!: number;
+  @prop()
+  currentFiatValue?: number;
 
   @Field()
   @prop({ required: true })

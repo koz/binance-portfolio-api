@@ -93,11 +93,9 @@ export default class BinanceApiClient {
       })
     );
 
-  public getCurrentFiatValue = async (pair: string): Promise<number> => {
-    const parsedPair = pair.split('/');
-    const boughtAsset = parsedPair[0];
+  public getCurrentFiatValue = async (asset: string): Promise<number> => {
     const binanceInfo = await ExchangeInfoModel.findOne({ name: 'binance' });
-    const hasEurPair = binanceInfo?.pairs.find((p) => p.baseAsset === parsedPair[0] && p.quoteAsset === 'EUR');
+    const hasEurPair = binanceInfo?.pairs.find((p) => p.baseAsset === asset && p.quoteAsset === 'EUR');
     const time = Date.now();
 
     let fiatValue = 0;
@@ -106,19 +104,19 @@ export default class BinanceApiClient {
         interval: '1m',
         startTime: time - 60000,
         endTime: time - 1,
-        symbol: `${boughtAsset}EUR`,
+        symbol: `${asset}EUR`,
       }).then((data: (string | number)[][]) => {
         if (data[0] && data[0][4]) {
           return Number(data[0][4]);
         }
         return 0;
       });
-    } else if (binanceInfo?.pairs.find((p) => p.baseAsset === parsedPair[0] && p.quoteAsset === 'BTC')) {
+    } else if (binanceInfo?.pairs.find((p) => p.baseAsset === asset && p.quoteAsset === 'BTC')) {
       const currentValueInBTC = await unsignedGet('klines', {
         interval: '1m',
         startTime: time - 60000,
         endTime: time - 1,
-        symbol: `${boughtAsset}BTC`,
+        symbol: `${asset}BTC`,
       }).then((data: (string | number)[][]) => {
         if (data[0] && data[0][4]) {
           return Number(data[0][4]);
