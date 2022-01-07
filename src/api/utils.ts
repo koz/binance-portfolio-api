@@ -9,7 +9,7 @@ const getURL = (endpoint: string): string => `${API_URL}/${endpoint}`;
 const responseHandler = (response: AxiosResponse): any => response.data;
 // TODO: Implement error handling
 const errorHandler = ({ response }: AxiosError): void => {
-  console.log(response?.data);
+  console.log(response);
 };
 
 const getQueryString = (params: Record<string, string>) => new URLSearchParams(params).toString();

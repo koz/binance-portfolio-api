@@ -14,7 +14,10 @@ export type BinanceTransaction = {
   isBestMatch: boolean;
 };
 
-export type TransactionFiatValue = {
+export type BinanceTransactionWPair = BinanceTransaction & {
   pair: string;
+};
+
+export type TransactionFiatValue = {
   fiatValue: number;
 };

@@ -5,13 +5,13 @@ import { Ctx, Query, Resolver, UseMiddleware } from 'type-graphql';
 import { isAuth } from '../middleware/isAuth';
 import BinanceApiClient from '../api/index';
 import { userNotFoundResponse, tokensNotFound } from '../utils/errorsReponses';
-import { BinanceTransaction, TransactionFiatValue } from '../utils/types';
+import { BinanceTransactionWPair, TransactionFiatValue } from '../utils/types';
 import { Transaction } from '../entity/Transaction';
 import { getModelForClass } from '@typegoose/typegoose';
 
 const UserModel = getModelForClass(User);
 
-const formatTransactions = (transactions: (BinanceTransaction & TransactionFiatValue)[][]): Transaction[][] =>
+const formatTransactions = (transactions: (BinanceTransactionWPair & TransactionFiatValue)[][]): Transaction[][] =>
   transactions.map((pair) =>
     pair.map(
       ({
@@ -69,18 +69,16 @@ export class TokensResolver {
 
     const apiClient = new BinanceApiClient(user.binanceApiKey, user.binanceSecretKey);
 
-    if (!user.transactionsLastUpdated || Date.now() > user.transactionsLastUpdated + 60000 * 5) {
-      const assetTransactions = await apiClient.getPairsTransactions(pairs, user.transactionsLastUpdated);
+    const assetTransactions = await apiClient.getPairsTransactions(pairs);
 
-      const nonEmptyTransactions = assetTransactions.filter((s) => s.filter((x) => x).length);
+    const nonEmptyTransactions = assetTransactions.filter((s) => s.filter((x) => x).length);
 
-      const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(nonEmptyTransactions);
+    const transactionsWithFiatValue = await apiClient.getTransactionsFiatValue(nonEmptyTransactions);
 
-      const parsedTransactions = formatTransactions(transactionsWithFiatValue);
+    const parsedTransactions = formatTransactions(transactionsWithFiatValue);
 
-      user.transactions = user.transactions ? [...user.transactions, ...parsedTransactions] : parsedTransactions;
-      user.transactionsLastUpdated = Date.now();
-    }
+    user.transactions = parsedTransactions;
+    user.transactionsLastUpdated = Date.now();
 
     const tokensFromApi: Record<string, Token> = {};
 
@@ -94,7 +92,7 @@ export class TokensResolver {
         const investimentValue = transactionFiatValue * transactionQty;
 
         if (!tokensFromApi[boughtCurrency]) {
-          const currentFiatValue = Number(await apiClient.getCurrentFiatValue(boughtCurrency));
+          const currentFiatValue = Number(await apiClient.getCurrentFiatValue(t.pair));
           tokensFromApi[boughtCurrency] = {
             token: boughtCurrency,
             qty,

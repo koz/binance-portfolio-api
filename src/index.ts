@@ -1,6 +1,7 @@
 import 'reflect-metadata';
 import express from 'express';
 import session from 'express-session';
+import cors from 'cors';
 import { ApolloServer } from 'apollo-server-express';
 import { buildSchema } from 'type-graphql';
 import { AuthResolver } from './resolvers/AuthResolver';
@@ -15,6 +16,12 @@ const mongoUri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cl
 
 (async () => {
   const app = express();
+  app.use(
+    cors({
+      origin: 'http://localhost:3000',
+      credentials: true,
+    })
+  );
 
   app.use(
     session({
